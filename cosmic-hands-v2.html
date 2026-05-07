@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COSMIC HANDS — Gesture Universe</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --cyan:#00f5ff;
+  --purple:#7b2fff;
+  --gold:#ffd700;
+  --red:#ff3d3d;
+  --bg:#00000a;
+}
+
+body{
+  background:var(--bg);
+  overflow:hidden;
+  font-family:'Rajdhani',sans-serif;
+  color:#fff;
+  user-select:none;
+}
+
+/* ── PERMISSION GATE ── */
+#gate{
+  position:fixed;inset:0;z-index:1000;
+  background:radial-gradient(ellipse at 50% 40%, #0a0020 0%, #000008 60%, #000 100%);
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity 0.8s ease;
+}
+#gate.fade-out{opacity:0;pointer-events:none}
+
+.gate-card{
+  width:min(520px,92vw);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:24px;
+  background:rgba(255,255,255,0.03);
+  backdrop-filter:blur(40px);
+  padding:48px 40px 40px;
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+}
+.gate-card::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(0,245,255,0.04),transparent 50%,rgba(123,47,255,0.04));
+  pointer-events:none;
+}
+.gate-glow{
+  width:200px;height:200px;
+  margin:0 auto 32px;
+  position:relative;
+}
+.gate-glow canvas{width:100%;height:100%;border-radius:50%}
+.hand-icon{
+  font-size:72px;
+  animation:float 3s ease-in-out infinite;
+  display:block;line-height:1;
+  filter:drop-shadow(0 0 20px rgba(0,245,255,0.5));
+}
+@keyframes float{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-12px) rotate(5deg)}}
+
+.gate-title{
+  font-family:'Space Mono',monospace;
+  font-size:clamp(20px,4vw,28px);
+  font-weight:700;
+  letter-spacing:0.1em;
+  background:linear-gradient(135deg,#fff 30%,var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  margin-bottom:8px;
+}
+.gate-sub{
+  font-size:13px;letter-spacing:0.15em;color:rgba(255,255,255,0.35);
+  text-transform:uppercase;margin-bottom:28px;
+}
+.gate-desc{
+  font-size:15px;line-height:1.7;color:rgba(255,255,255,0.55);
+  margin-bottom:36px;
+}
+
+/* gesture preview strip */
+.gesture-strip{
+  display:flex;gap:10px;justify-content:center;flex-wrap:wrap;
+  margin-bottom:36px;
+}
+.gs-chip{
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:100px;
+  padding:6px 14px;
+  font-size:12px;
+  letter-spacing:0.08em;
+  color:rgba(255,255,255,0.5);
+  display:flex;align-items:center;gap:6px;
+}
+.gs-chip span{font-size:16px}
+
+#allow-btn{
+  width:100%;padding:16px;
+  background:linear-gradient(135deg,var(--cyan),var(--purple));
+  border:none;border-radius:12px;
+  font-family:'Rajdhani',sans-serif;
+  font-size:17px;font-weight:700;letter-spacing:0.15em;
+  color:#000;cursor:pointer;
+  text-transform:uppercase;
+  transition:transform 0.2s,box-shadow 0.2s;
+  position:relative;overflow:hidden;
+}
+#allow-btn::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,0.2),transparent);
+  opacity:0;transition:opacity 0.2s;
+}
+#allow-btn:hover{transform:translateY(-2px);box-shadow:0 8px 40px rgba(0,245,255,0.35)}
+#allow-btn:hover::after{opacity:1}
+#allow-btn:active{transform:translateY(0)}
+
+.gate-note{
+  margin-top:16px;font-size:11px;
+  letter-spacing:0.1em;color:rgba(255,255,255,0.2);
+}
+
+/* ── ERROR STATE ── */
+#error-panel{
+  display:none;
+  background:rgba(255,61,61,0.08);
+  border:1px solid rgba(255,61,61,0.2);
+  border-radius:12px;padding:20px;
+  margin-top:20px;
+  font-size:13px;color:rgba(255,120,120,0.9);
+  line-height:1.6;
+}
+
+/* ── MAIN APP ── */
+#app{
+  position:fixed;inset:0;
+  opacity:0;pointer-events:none;
+  transition:opacity 1s;
+}
+#app.visible{opacity:1;pointer-events:all}
+
+#canvas3d{position:absolute;inset:0;width:100%;height:100%}
+
+/* ── WEBCAM PIP ── */
+#pip-wrap{
+  position:fixed;bottom:28px;right:28px;z-index:50;
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+}
+#pip-ring{
+  width:148px;height:148px;
+  border-radius:16px;
+  padding:3px;
+  background:conic-gradient(var(--cyan) 0deg, var(--purple) 180deg, var(--cyan) 360deg);
+  animation:spin 6s linear infinite;
+  box-shadow:0 0 30px rgba(0,245,255,0.2);
+  transition:box-shadow 0.4s;
+}
+#pip-ring.gesture-hold{box-shadow:0 0 50px rgba(0,245,255,0.6),0 0 80px rgba(123,47,255,0.3)}
+#pip-inner{
+  width:100%;height:100%;
+  border-radius:14px;
+  overflow:hidden;
+  background:#000;
+  position:relative;
+}
+#pip-canvas{
+  width:100%;height:100%;
+  object-fit:cover;
+  transform:scaleX(-1);
+  position:absolute;inset:0;
+}
+#pip-overlay{
+  position:absolute;inset:0;border-radius:14px;
+  background:radial-gradient(circle at 50% 100%,rgba(0,0,0,0.4) 0%,transparent 60%);
+  pointer-events:none;
+}
+#gesture-progress{
+  position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+  width:80%;height:2px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;
+  margin-bottom:6px;
+}
+#gesture-progress-fill{
+  height:100%;background:linear-gradient(90deg,var(--cyan),var(--purple));
+  width:0%;transition:width 0.05s;
+}
+
+#pip-status{
+  font-family:'Space Mono',monospace;
+  font-size:9px;letter-spacing:0.15em;
+  color:rgba(255,255,255,0.4);text-align:center;
+  text-transform:uppercase;
+}
+#pip-gesture{
+  font-size:11px;font-weight:700;
+  letter-spacing:0.1em;
+  color:var(--cyan);
+  transition:color 0.3s;
+  text-align:center;
+  min-height:16px;
+}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+/* ── HUD ── */
+#hud{
+  position:fixed;bottom:36px;left:50%;transform:translateX(-50%);
+  text-align:center;z-index:40;pointer-events:none;
+}
+#event-gesture{
+  font-family:'Space Mono',monospace;
+  font-size:10px;letter-spacing:0.25em;
+  color:rgba(255,255,255,0.3);
+  text-transform:uppercase;
+  margin-bottom:6px;
+}
+#event-title{
+  font-family:'Rajdhani',sans-serif;
+  font-size:clamp(28px,5vw,48px);
+  font-weight:700;
+  letter-spacing:0.15em;
+  text-transform:uppercase;
+  text-shadow:0 0 40px currentColor,0 0 80px currentColor;
+  transition:color 0.6s, text-shadow 0.6s, opacity 0.4s;
+}
+
+/* ── GESTURE GUIDE ── */
+#guide{
+  position:fixed;top:50%;left:28px;transform:translateY(-50%);
+  z-index:40;
+  display:flex;flex-direction:column;gap:6px;
+}
+.guide-item{
+  display:flex;align-items:center;gap:10px;
+  background:rgba(0,0,0,0.4);
+  border:1px solid rgba(255,255,255,0.06);
+  border-left:2px solid transparent;
+  border-radius:8px;
+  padding:8px 14px 8px 12px;
+  transition:border-left-color 0.3s,background 0.3s,transform 0.2s;
+  cursor:default;
+}
+.guide-item.active{
+  border-left-color:var(--cyan);
+  background:rgba(0,245,255,0.06);
+  transform:translateX(4px);
+}
+.guide-emoji{font-size:18px;width:24px;text-align:center}
+.guide-text{
+  display:flex;flex-direction:column;
+  font-size:11px;
+}
+.guide-gesture{letter-spacing:0.1em;color:rgba(255,255,255,0.35);text-transform:uppercase}
+.guide-event{font-weight:700;letter-spacing:0.08em;color:rgba(255,255,255,0.7);font-size:12px}
+
+/* ── TOP BAR ── */
+#topbar{
+  position:fixed;top:0;left:0;right:0;
+  z-index:40;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:20px 28px;
+  background:linear-gradient(to bottom,rgba(0,0,10,0.8),transparent);
+}
+#logo{
+  font-family:'Space Mono',monospace;
+  font-size:13px;letter-spacing:0.25em;
+  color:rgba(255,255,255,0.6);
+  text-transform:uppercase;
+}
+#logo strong{color:var(--cyan)}
+#status-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--cyan);
+  box-shadow:0 0 10px var(--cyan);
+  animation:pulse 2s ease-in-out infinite;
+}
+#status-label{
+  font-family:'Space Mono',monospace;
+  font-size:9px;letter-spacing:0.15em;
+  color:rgba(255,255,255,0.3);
+}
+.topbar-right{display:flex;align-items:center;gap:10px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* ── LOADING SCREEN ── */
+#loading{
+  position:fixed;inset:0;z-index:500;
+  background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:20px;
+  transition:opacity 0.8s;
+}
+#loading.fade-out{opacity:0;pointer-events:none}
+.load-icon{font-size:48px;animation:float 2s ease-in-out infinite}
+.load-text{
+  font-family:'Space Mono',monospace;
+  font-size:12px;letter-spacing:0.3em;
+  color:rgba(255,255,255,0.5);
+}
+.load-bar{width:240px;height:1px;background:rgba(255,255,255,0.1);border-radius:1px;overflow:hidden}
+.load-fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--purple));width:0%;transition:width 0.3s ease}
+
+/* ── TRANSITION FLASH ── */
+#flash{
+  position:fixed;inset:0;z-index:30;
+  pointer-events:none;
+  opacity:0;
+  background:radial-gradient(circle at 50% 50%,rgba(255,255,255,0.15),transparent 70%);
+  transition:opacity 0.1s;
+}
+#flash.on{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- PERMISSION GATE -->
+<div id="gate">
+  <div class="gate-card">
+    <div class="gate-glow">
+      <span class="hand-icon">🖐️</span>
+    </div>
+    <div class="gate-title">COSMIC HANDS</div>
+    <div class="gate-sub">Gesture-Controlled Universe</div>
+    <div class="gate-desc">
+      Control cosmic phenomena with your bare hands.<br>
+      This experience requires your camera to detect gestures in real time.<br>
+      <strong style="color:rgba(255,255,255,0.7)">No video is stored or transmitted.</strong>
+    </div>
+    <div class="gesture-strip">
+      <div class="gs-chip"><span>✊</span> BLACK HOLE</div>
+      <div class="gs-chip"><span>🖐</span> GALAXY</div>
+      <div class="gs-chip"><span>✌️</span> WORMHOLE</div>
+      <div class="gs-chip"><span>☝️</span> PULSAR</div>
+      <div class="gs-chip"><span>👍</span> SUPERNOVA</div>
+      <div class="gs-chip"><span>🤏</span> QUASAR</div>
+    </div>
+    <button id="allow-btn">📷 &nbsp;Open Camera &amp; Begin</button>
+    <div class="gate-note">Camera permission required · Works in Chrome, Firefox, Safari</div>
+    <div id="error-panel"></div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div id="loading" style="display:none">
+  <span class="load-icon">🌌</span>
+  <div class="load-text" id="load-text">INITIALIZING COSMOS</div>
+  <div class="load-bar"><div class="load-fill" id="load-fill"></div></div>
+</div>
+
+<!-- FLASH EFFECT -->
+<div id="flash"></div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <canvas id="canvas3d"></canvas>
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div id="logo"><strong>COSMIC</strong> HANDS</div>
+    <div class="topbar-right">
+      <div id="status-label">TRACKING ACTIVE</div>
+      <div id="status-dot"></div>
+    </div>
+  </div>
+
+  <!-- WEBCAM PIP -->
+  <div id="pip-wrap">
+    <div id="pip-ring">
+      <div id="pip-inner">
+        <canvas id="pip-canvas" width="280" height="280"></canvas>
+        <div id="pip-overlay"></div>
+        <div id="gesture-progress"><div id="gesture-progress-fill"></div></div>
+      </div>
+    </div>
+    <div id="pip-gesture">SHOW A GESTURE</div>
+    <div id="pip-status">HAND TRACKING</div>
+  </div>
+
+  <!-- GESTURE GUIDE -->
+  <div id="guide">
+    <div class="guide-item" data-event="blackhole"><span class="guide-emoji">✊</span><div class="guide-text"><span class="guide-gesture">Fist</span><span class="guide-event">Black Hole</span></div></div>
+    <div class="guide-item" data-event="galaxy"><span class="guide-emoji">🖐</span><div class="guide-text"><span class="guide-gesture">Open Hand</span><span class="guide-event">Galaxy</span></div></div>
+    <div class="guide-item" data-event="wormhole"><span class="guide-emoji">✌️</span><div class="guide-text"><span class="guide-gesture">Peace / V</span><span class="guide-event">Wormhole</span></div></div>
+    <div class="guide-item" data-event="pulsar"><span class="guide-emoji">☝️</span><div class="guide-text"><span class="guide-gesture">Index Point</span><span class="guide-event">Pulsar</span></div></div>
+    <div class="guide-item" data-event="supernova"><span class="guide-emoji">👍</span><div class="guide-text"><span class="guide-gesture">Thumb Up</span><span class="guide-event">Supernova</span></div></div>
+    <div class="guide-item" data-event="quasar"><span class="guide-emoji">🤏</span><div class="guide-text"><span class="guide-gesture">Pinch</span><span class="guide-event">Quasar</span></div></div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="event-gesture">—</div>
+    <div id="event-title" style="color:#ffffff;opacity:0.2">AWAITING GESTURE</div>
+  </div>
+</div>
+
+<!-- Hidden video -->
+<video id="webcam-video" playsinline autoplay muted style="display:none"></video>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+
+const MOBILE = window.innerWidth < 768;
+const STAR_COUNT = MOBILE ? 40000 : 120000;
+const PARTICLE_COUNT = MOBILE ? 18000 : 55000;
+
+/* ──────────────────────────────────────────
+   AUDIO
+──────────────────────────────────────────── */
+let audioCtx = null;
+function initAudio(){
+  if(audioCtx) return;
+  try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){}
+}
+function playTone(freq, type='sine', dur=0.3, vol=0.15){
+  if(!audioCtx) return;
+  try{
+    const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+    o.type=type; o.frequency.value=freq;
+    g.gain.setValueAtTime(0,audioCtx.currentTime);
+    g.gain.linearRampToValueAtTime(vol,audioCtx.currentTime+0.05);
+    g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+dur);
+    o.start(); o.stop(audioCtx.currentTime+dur);
+  }catch(e){}
+}
+
+/* ──────────────────────────────────────────
+   COSMIC EVENT CLASSES
+──────────────────────────────────────────── */
+class BlackHole {
+  constructor(){ this.group=new THREE.Group(); }
+  init(){
+    // Void sphere
+    const sg=new THREE.SphereGeometry(0.85,64,64);
+    this.sphere=new THREE.Mesh(sg,new THREE.MeshBasicMaterial({color:0x000000}));
+    this.group.add(this.sphere);
+    // Photon sphere ring
+    const ringCount=MOBILE?8000:28000;
+    const rp=new Float32Array(ringCount*3), rc=new Float32Array(ringCount*3);
+    for(let i=0;i<ringCount;i++){
+      const r=0.88+Math.pow(Math.random(),3)*0.08;
+      const phi=Math.random()*Math.PI*2, tht=Math.random()*Math.PI;
+      rp[i*3]=Math.sin(tht)*Math.cos(phi)*r; rp[i*3+1]=Math.cos(tht)*r; rp[i*3+2]=Math.sin(tht)*Math.sin(phi)*r;
+      const t=Math.random();
+      rc[i*3]=1; rc[i*3+1]=0.6+t*0.3; rc[i*3+2]=0.1;
+    }
+    const photonGeo=new THREE.BufferGeometry();
+    photonGeo.setAttribute('position',new THREE.BufferAttribute(rp,3));
+    photonGeo.setAttribute('color',new THREE.BufferAttribute(rc,3));
+    this.photonRing=new THREE.Points(photonGeo,new THREE.PointsMaterial({size:0.012,vertexColors:true,transparent:true,opacity:0.9,blending:THREE.AdditiveBlending,depthWrite:false}));
+    this.group.add(this.photonRing);
+    // Accretion disk
+    const diskCount=MOBILE?10000:35000;
+    const dp=new Float32Array(diskCount*3), dc=new Float32Array(diskCount*3);
+    for(let i=0;i<diskCount;i++){
+      const r=1.1+Math.pow(Math.random(),0.6)*3.8;
+      const theta=Math.random()*Math.PI*2;
+      const y=(Math.random()-0.5)*0.12*Math.exp(-(r-1.1)*0.8);
+      dp[i*3]=Math.cos(theta)*r; dp[i*3+1]=y; dp[i*3+2]=Math.sin(theta)*r;
+      const t=(r-1.1)/3.8;
+      dc[i*3]=t<0.3?1:t<0.6?1:0.7;
+      dc[i*3+1]=t<0.3?0.4:t<0.6?0.15:0.03;
+      dc[i*3+2]=0;
+    }
+    const diskGeo=new THREE.BufferGeometry();
+    diskGeo.setAttribute('position',new THREE.BufferAttribute(dp,3));
+    diskGeo.setAttribute('color',new THREE.BufferAttribute(dc,3));
+    this.disk=new THREE.Points(diskGeo,new THREE.PointsMaterial({size:0.022,vertexColors:true,transparent:true,opacity:0.95,depthWrite:false,blending:THREE.AdditiveBlending}));
+    this.group.add(this.disk);
+    scene.add(this.group);
+    cameraTarget.set(0,0,6);
+    playTone(55,'sawtooth',2.5,0.12);
+  }
+  update(t){
+    if(this.disk) this.disk.rotation.y=t*0.35;
+    if(this.photonRing){ this.photonRing.rotation.x=t*0.1; this.photonRing.rotation.y=t*0.08; }
+    if(this.sphere) this.sphere.scale.setScalar(1+Math.sin(t*1.8)*0.018);
+  }
+  dispose(){ scene.remove(this.group); }
+}
+
+class Galaxy {
+  constructor(){ this.group=new THREE.Group(); }
+  init(){
+    const count=PARTICLE_COUNT;
+    const pos=new Float32Array(count*3), col=new Float32Array(count*3);
+    for(let i=0;i<count;i++){
+      const arm=Math.floor(Math.random()*5);
+      const r=Math.pow(Math.random(),0.5)*9;
+      const armAngle=(arm/5)*Math.PI*2;
+      const twist=r*0.45;
+      const spread=(1-r/9)*0.28+0.04;
+      const theta=armAngle+twist+(Math.random()-0.5)*spread*2;
+      const y=(Math.random()-0.5)*0.25*Math.exp(-r*0.3);
+      pos[i*3]=Math.cos(theta)*r; pos[i*3+1]=y; pos[i*3+2]=Math.sin(theta)*r;
+      const t=r/9;
+      if(r<1.5){col[i*3]=1;col[i*3+1]=0.95;col[i*3+2]=0.8;}
+      else if(t<0.5){col[i*3]=0.7+Math.random()*0.3;col[i*3+1]=0.5+Math.random()*0.3;col[i*3+2]=0.2;}
+      else{col[i*3]=0.15+Math.random()*0.3;col[i*3+1]=0.4+Math.random()*0.3;col[i*3+2]=0.9+Math.random()*0.1;}
+    }
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+    g.setAttribute('color',new THREE.BufferAttribute(col,3));
+    this.stars=new THREE.Points(g,new THREE.PointsMaterial({size:0.035,vertexColors:true,transparent:true,opacity:0.88,blending:THREE.AdditiveBlending,depthWrite:false}));
+    this.group.add(this.stars);
+    scene.add(this.group);
+    cameraTarget.set(0,3,11);
+    playTone(220,'sine',2,0.08);
+  }
+  update(t){
+    this.group.rotation.y=t*0.055;
+    this.group.rotation.x=Math.sin(t*0.1)*0.08;
+  }
+  dispose(){ scene.remove(this.group); }
+}
+
+class Wormhole {
+  constructor(){ this.group=new THREE.Group(); }
+  init(){
+    for(let p=0;p<2;p++){
+      const z=p===0?-3.5:3.5;
+      const cnt=MOBILE?4000:14000;
+      const rp=new Float32Array(cnt*3), rc=new Float32Array(cnt*3);
+      for(let i=0;i<cnt;i++){
+        const theta=Math.random()*Math.PI*2;
+        const r=2+(Math.random()-0.5)*0.5;
+        const dz=(Math.random()-0.5)*0.4;
+        rp[i*3]=Math.cos(theta)*r; rp[i*3+1]=Math.sin(theta)*r; rp[i*3+2]=z+dz;
+        rc[i*3]=p===0?0:0.9; rc[i*3+1]=p===0?1:0.4; rc[i*3+2]=1;
+      }
+      const geo=new THREE.BufferGeometry();
+      geo.setAttribute('position',new THREE.BufferAttribute(rp,3));
+      geo.setAttribute('color',new THREE.BufferAttribute(rc,3));
+      this['ring'+p]=new THREE.Points(geo,new THREE.PointsMaterial({size:0.04,vertexColors:true,transparent:true,opacity:0.95,blending:THREE.AdditiveBlending,depthWrite:false}));
+      this.group.add(this['ring'+p]);
+    }
+    // Tunnel
+    const tc=MOBILE?6000:24000;
+    const tp=new Float32Array(tc*3), tCol=new Float32Array(tc*3);
+    for(let i=0;i<tc;i++){
+      const z=(Math.random()-0.5)*7;
+      const r=2*(1-Math.abs(z)/3.5*0.2)+(Math.random()-0.5)*0.18;
+      const theta=Math.random()*Math.PI*2;
+      tp[i*3]=Math.cos(theta)*r; tp[i*3+1]=Math.sin(theta)*r; tp[i*3+2]=z;
+      const tt=(z+3.5)/7;
+      tCol[i*3]=tt*0.9; tCol[i*3+1]=0.5+tt*0.3; tCol[i*3+2]=1-tt*0.2;
+    }
+    const tGeo=new THREE.BufferGeometry();
+    tGeo.setAttribute('position',new THREE.BufferAttribute(tp,3));
+    tGeo.setAttribute('color',new THREE.BufferAttribute(tCol,3));
+    this.tunnel=new THREE.Points(tGeo,new THREE.PointsMaterial({size:0.018,vertexColors:true,transparent:true,opacity:0.5,blending:THREE.AdditiveBlending,depthWrite:false}));
+    this.group.add(this.tunnel);
+    scene.add(this.group);
+    cameraTarget.set(0,0,7);
+    playTone(150,'sine',0.5,0.1); setTimeout(()=>playTone(300,'sine',0.5,0.1),300);
+  }
+  update(t){
+    this.group.rotation.z=t*0.18;
+    if(this.ring0) this.ring0.rotation.z=t*0.55;
+    if(this.ring1) this.ring1.rotation.z=-t*0.55;
+    if(this.tunnel){
+      const pos=this.tunnel.geometry.attributes.position.array;
+      for(let i=0;i<pos.length;i+=3){
+        const wave=Math.sin(t*2+pos[i+2]*0.5)*0.03;
+        pos[i]+=wave*0.15; pos[i+1]+=wave*0.15;
+      }
+      this.tunnel.geometry.attributes.position.needsUpdate=true;
+    }
+  }
+  dispose(){ scene.remove(this.group); }
+}
+
+class Pulsar {
+  constructor(){ this.group=new THREE.Group(); this._interval=null; }
+  init(){
+    const sg=new THREE.SphereGeometry(0.42,32,32);
+    this.star=new THREE.Mesh(sg,new THREE.MeshBasicMaterial({color:0xaae8ff}));
+    this.group.add(this.star);
+    // Glow halo
+    const gc=MOBILE?3000:10000;
+    const gp=new Float32Array(gc*3), gcol=new Float32Array(gc*3);
+    for(let i=0;i<gc;i++){
+      const phi=Math.random()*Math.PI*2, tht=Math.random()*Math.PI, r=0.44+Math.random()*0.06;
+      gp[i*3]=Math.sin(tht)*Math.cos(phi)*r; gp[i*3+1]=Math.cos(tht)*r; gp[i*3+2]=Math.sin(tht)*Math.sin(phi)*r;
+      gcol[i*3]=0.7; gcol[i*3+1]=0.92; gcol[i*3+2]=1;
+    }
+    const gGeo=new THREE.BufferGeometry();
+    gGeo.setAttribute('position',new THREE.BufferAttribute(gp,3));
+    gGeo.setAttribute('color',new THREE.BufferAttribute(gcol,3));
+    this.glow=new THREE.Points(gGeo,new THREE.PointsMaterial({size:0.018,vertexColors:true,transparent:true,opacity:0.85,blending:THREE.AdditiveBlending,depthWrite:false}));
+    this.group.add(this.glow);
+    // Two gamma beams
+    for(let b=0;b<2;b++){
+      const bc=MOBILE?4000:15000;
+      const bp=new Float32Array(bc*3), bCol=new Float32Array(bc*3);
+      const dir=b===0?1:-1;
+      for(let i=0;i<bc;i++){
+        const z=Math.random()*9*dir;
+        const spread=Math.abs(z)*0.1;
+        const phi=Math.random()*Math.PI*2;
+        bp[i*3]=Math.cos(phi)*Math.random()*spread; bp[i*3+1]=Math.sin(phi)*Math.random()*spread; bp[i*3+2]=z;
+        bCol[i*3]=0.5+Math.random()*0.5; bCol[i*3+1]=0.88; bCol[i*3+2]=1;
+      }
+      const bGeo=new THREE.BufferGeometry();
+      bGeo.setAttribute('position',new THREE.BufferAttribute(bp,3));
+      bGeo.setAttribute('color',new THREE.BufferAttribute(bCol,3));
+      this['beam'+b]=new THREE.Points(bGeo,new THREE.PointsMaterial({size:0.022,vertexColors:true,transparent:true,opacity:0.6,blending:THREE.AdditiveBlending,depthWrite:false}));
+      this.group.add(this['beam'+b]);
+    }
+    scene.add(this.group);
+    cameraTarget.set(0,0,8);
+    this._interval=setInterval(()=>playTone(440,'square',0.08,0.04),400);
+  }
+  update(t){
+    this.group.rotation.z=t*3.2;
+    this.group.rotation.y=Math.sin(t*0.5)*0.3;
+    if(this.beam0){
+      this.beam0.material.opacity=0.35+Math.sin(t*9)*0.3;
+      this.beam1.material.opacity=0.35+Math.sin(t*9+Math.PI)*0.3;
+    }
+  }
+  dispose(){ clearInterval(this._interval); scene.remove(this.group); }
+}
+
+class Supernova {
+  constructor(){ this.group=new THREE.Group(); }
+  init(){
+    const count=PARTICLE_COUNT;
+    this.vel=new Float32Array(count*3);
+    const pos=new Float32Array(count*3), col=new Float32Array(count*3);
+    for(let i=0;i<count;i++){
+      const phi=Math.random()*Math.PI*2, tht=Math.random()*Math.PI, r=Math.random()*0.35;
+      pos[i*3]=Math.sin(tht)*Math.cos(phi)*r; pos[i*3+1]=Math.cos(tht)*r; pos[i*3+2]=Math.sin(tht)*Math.sin(phi)*r;
+      const speed=0.8+Math.random()*3.5;
+      this.vel[i*3]=Math.sin(tht)*Math.cos(phi)*speed*0.022;
+      this.vel[i*3+1]=Math.cos(tht)*speed*0.022;
+      this.vel[i*3+2]=Math.sin(tht)*Math.sin(phi)*speed*0.022;
+      col[i*3]=1; col[i*3+1]=1; col[i*3+2]=1;
+    }
+    this.posArr=pos;
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+    g.setAttribute('color',new THREE.BufferAttribute(col,3));
+    this.debris=new THREE.Points(g,new THREE.PointsMaterial({size:0.04,vertexColors:true,transparent:true,opacity:1,blending:THREE.AdditiveBlending,depthWrite:false}));
+    this.group.add(this.debris);
+    scene.add(this.group);
+    cameraTarget.set(0,0,13);
+    if(audioCtx){
+      playTone(80,'sawtooth',0.3,0.35);
+      setTimeout(()=>playTone(160,'sawtooth',0.2,0.25),100);
+      setTimeout(()=>playTone(40,'sawtooth',1,0.25),200);
+    }
+  }
+  update(t){
+    const col=this.debris.geometry.attributes.color.array;
+    const pos=this.debris.geometry.attributes.position.array;
+    for(let i=0;i<pos.length;i+=3){
+      pos[i]+=this.vel[i]; pos[i+1]+=this.vel[i+1]; pos[i+2]+=this.vel[i+2];
+      const r=Math.sqrt(pos[i]**2+pos[i+1]**2+pos[i+2]**2);
+      const fade=Math.min(r/16,1);
+      col[i]=1; col[i+1]=1-fade*0.7; col[i+2]=1-fade;
+      if(r>20){
+        const phi=Math.random()*Math.PI*2, tht=Math.random()*Math.PI, rr=Math.random()*0.3;
+        pos[i]=Math.sin(tht)*Math.cos(phi)*rr; pos[i+1]=Math.cos(tht)*rr; pos[i+2]=Math.sin(tht)*Math.sin(phi)*rr;
+      }
+    }
+    this.debris.geometry.attributes.position.needsUpdate=true;
+    this.debris.geometry.attributes.color.needsUpdate=true;
+    this.group.rotation.y=t*0.08;
+  }
+  dispose(){ scene.remove(this.group); }
+}
+
+class Quasar {
+  constructor(){ this.group=new THREE.Group(); }
+  init(){
+    const dc=MOBILE?10000:32000;
+    const dp=new Float32Array(dc*3), dCol=new Float32Array(dc*3);
+    for(let i=0;i<dc;i++){
+      const r=0.4+Math.pow(Math.random(),2)*4.5;
+      const theta=Math.random()*Math.PI*2;
+      const y=(Math.random()-0.5)*0.07*Math.exp(-(r-0.4)*0.7);
+      dp[i*3]=Math.cos(theta)*r; dp[i*3+1]=y; dp[i*3+2]=Math.sin(theta)*r;
+      const t=(r-0.4)/4.5;
+      dCol[i*3]=1; dCol[i*3+1]=0.45-t*0.25; dCol[i*3+2]=0.05+t*0.1;
+    }
+    const dGeo=new THREE.BufferGeometry();
+    dGeo.setAttribute('position',new THREE.BufferAttribute(dp,3));
+    dGeo.setAttribute('color',new THREE.BufferAttribute(dCol,3));
+    this.disk=new THREE.Points(dGeo,new THREE.PointsMaterial({size:0.028,vertexColors:true,transparent:true,opacity:0.98,blending:THREE.AdditiveBlending,depthWrite:false}));
+    this.group.add(this.disk);
+    for(let j=0;j<2;j++){
+      const jc=MOBILE?5000:18000;
+      const jp=new Float32Array(jc*3), jCol=new Float32Array(jc*3);
+      const dir=j===0?1:-1;
+      for(let i=0;i<jc;i++){
+        const z=Math.pow(Math.random(),0.5)*14*dir;
+        const phi=Math.random()*Math.PI*2;
+        jp[i*3]=Math.cos(phi)*Math.random()*Math.abs(z)*0.055;
+        jp[i*3+1]=z;
+        jp[i*3+2]=Math.sin(phi)*Math.random()*Math.abs(z)*0.055;
+        const rt=Math.abs(z)/14;
+        jCol[i*3]=1-rt*0.5; jCol[i*3+1]=0.35-rt*0.25; jCol[i*3+2]=rt*0.6;
+      }
+      const jGeo=new THREE.BufferGeometry();
+      jGeo.setAttribute('position',new THREE.BufferAttribute(jp,3));
+      jGeo.setAttribute('color',new THREE.BufferAttribute(jCol,3));
+      this['jet'+j]=new THREE.Points(jGeo,new THREE.PointsMaterial({size:0.018,vertexColors:true,transparent:true,opacity:0.7,blending:THREE.AdditiveBlending,depthWrite:false}));
+      this.group.add(this['jet'+j]);
+    }
+    scene.add(this.group);
+    cameraTarget.set(0,2,9);
+    playTone(110,'sawtooth',2,0.1);
+  }
+  update(t){
+    if(this.disk) this.disk.rotation.y=t*0.42;
+    if(this.jet0){
+      this.jet0.material.opacity=0.5+Math.sin(t*5)*0.22;
+      this.jet1.material.opacity=0.5+Math.sin(t*5+Math.PI)*0.22;
+    }
+  }
+  dispose(){ scene.remove(this.group); }
+}
+
+/* ──────────────────────────────────────────
+   EVENT CONFIG
+──────────────────────────────────────────── */
+const EVENTS = {
+  blackhole:{ cls:BlackHole, gesture:'FIST',       name:'BLACK HOLE',    color:'#ff4422' },
+  galaxy:   { cls:Galaxy,    gesture:'OPEN HAND',  name:'GALAXY SPIRAL', color:'#7799ff' },
+  wormhole: { cls:Wormhole,  gesture:'PEACE / V',  name:'WORMHOLE',      color:'#00f5ff' },
+  pulsar:   { cls:Pulsar,    gesture:'INDEX POINT',name:'PULSAR',        color:'#aaeeff' },
+  supernova:{ cls:Supernova, gesture:'THUMB UP',   name:'SUPERNOVA',     color:'#ffd700' },
+  quasar:   { cls:Quasar,    gesture:'PINCH',      name:'QUASAR',        color:'#ff8833' },
+};
+
+/* ──────────────────────────────────────────
+   THREE.JS SETUP
+──────────────────────────────────────────── */
+let clock, scene, camera, renderer, starField;
+let cameraTarget=new THREE.Vector3(0,0,8);
+let activeEvent=null, currentEvent=null;
+
+function initThree(){
+  clock=new THREE.Clock();
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x000008);
+  camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,2000);
+  camera.position.set(0,0,8);
+  renderer=new THREE.WebGLRenderer({canvas:document.getElementById('canvas3d'),antialias:!MOBILE,powerPreference:'high-performance'});
+  renderer.setSize(innerWidth,innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.5;
+  createStarField();
+  window.addEventListener('resize',()=>{
+    camera.aspect=innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth,innerHeight);
+  });
+}
+
+function createStarField(){
+  const pos=new Float32Array(STAR_COUNT*3), col=new Float32Array(STAR_COUNT*3);
+  for(let i=0;i<STAR_COUNT;i++){
+    const layer=Math.floor(Math.random()*3);
+    const radius=200+layer*300;
+    const phi=Math.random()*Math.PI*2, tht=Math.acos(2*Math.random()-1);
+    pos[i*3]=Math.sin(tht)*Math.cos(phi)*radius;
+    pos[i*3+1]=Math.cos(tht)*radius;
+    pos[i*3+2]=Math.sin(tht)*Math.sin(phi)*radius;
+    const r=Math.random(), b=Math.random();
+    col[i*3]=0.8+r*0.2; col[i*3+1]=0.8+r*0.1; col[i*3+2]=0.85+b*0.15;
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  g.setAttribute('color',new THREE.BufferAttribute(col,3));
+  starField=new THREE.Points(g,new THREE.PointsMaterial({size:0.28,vertexColors:true,transparent:true,opacity:0.9,blending:THREE.AdditiveBlending,depthWrite:false,sizeAttenuation:true}));
+  scene.add(starField);
+}
+
+/* ──────────────────────────────────────────
+   EVENT TRIGGER
+──────────────────────────────────────────── */
+function triggerEvent(name){
+  if(currentEvent===name) return;
+  const cfg=EVENTS[name];
+  if(!cfg) return;
+  if(activeEvent){ activeEvent.dispose(); }
+  activeEvent=new cfg.cls();
+  activeEvent.init();
+  currentEvent=name;
+
+  // HUD update
+  document.getElementById('event-gesture').textContent=cfg.gesture;
+  const et=document.getElementById('event-title');
+  et.textContent=cfg.name;
+  et.style.color=cfg.color;
+  et.style.opacity='1';
+
+  // Guide highlight
+  document.querySelectorAll('.guide-item').forEach(el=>{
+    el.classList.toggle('active', el.dataset.event===name);
+  });
+
+  // Flash
+  const fl=document.getElementById('flash');
+  fl.style.background=`radial-gradient(circle at 50% 50%,${cfg.color}22,transparent 70%)`;
+  fl.classList.add('on');
+  setTimeout(()=>fl.classList.remove('on'),180);
+}
+
+/* ──────────────────────────────────────────
+   GESTURE CLASSIFICATION
+──────────────────────────────────────────── */
+function classifyGesture(lm){
+  const [thumbTip,thumbMCP,thumbIP]=[lm[4],lm[2],lm[3]];
+  const [indexTip,indexPIP]=[lm[8],lm[6]];
+  const [midTip,midPIP]=[lm[12],lm[10]];
+  const [ringTip,ringPIP]=[lm[16],lm[14]];
+  const [pinkyTip,pinkyPIP]=[lm[20],lm[18]];
+
+  const ext=(tip,pip)=>tip.y<pip.y;
+  const iE=ext(indexTip,indexPIP);
+  const mE=ext(midTip,midPIP);
+  const rE=ext(ringTip,ringPIP);
+  const pE=ext(pinkyTip,pinkyPIP);
+
+  const dx=thumbTip.x-indexTip.x, dy=thumbTip.y-indexTip.y;
+  const pinchDist=Math.sqrt(dx*dx+dy*dy);
+  if(pinchDist<0.07 && !mE) return 'quasar';
+  if(!iE&&!mE&&!rE&&!pE) return 'blackhole';
+  if(iE&&mE&&!rE&&!pE) return 'wormhole';
+  if(iE&&!mE&&!rE&&!pE) return 'pulsar';
+  const thumbUp=thumbTip.y<thumbMCP.y-0.1;
+  if(thumbUp&&!iE&&!mE&&!rE&&!pE) return 'supernova';
+  if(iE&&mE&&rE&&pE) return 'galaxy';
+  return 'none';
+}
+
+/* ──────────────────────────────────────────
+   WEBCAM + MEDIAPIPE
+──────────────────────────────────────────── */
+let hands=null, pipCtx=null;
+let lastGesture='none', gestureHold=0;
+const HOLD_MS=550;
+
+async function startCamera(){
+  const stream=await navigator.mediaDevices.getUserMedia({video:{width:320,height:240,facingMode:'user'},audio:false});
+  const video=document.getElementById('webcam-video');
+  video.srcObject=stream;
+  await new Promise(r=>video.onloadedmetadata=r);
+  return video;
+}
+
+function loadScript(src){
+  return new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src=src; s.onload=res; s.onerror=rej;
+    document.head.appendChild(s);
+  });
+}
+
+async function initMediaPipe(video){
+  await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js');
+  await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js');
+
+  hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${f}`});
+  hands.setOptions({maxNumHands:1,modelComplexity:0,minDetectionConfidence:0.72,minTrackingConfidence:0.55});
+  hands.onResults(onHandResults);
+
+  const cam=new Camera(video,{
+    onFrame:async()=>{ if(hands) await hands.send({image:video}); },
+    width:320,height:240
+  });
+  cam.start();
+}
+
+function onHandResults(results){
+  const pipCanvas=document.getElementById('pip-canvas');
+  if(!pipCtx) pipCtx=pipCanvas.getContext('2d');
+  const video=document.getElementById('webcam-video');
+
+  // Draw video frame mirrored
+  pipCtx.clearRect(0,0,280,280);
+  pipCtx.save();
+  pipCtx.scale(-1,1); pipCtx.translate(-280,0);
+  try{ pipCtx.drawImage(video,0,0,280,280); }catch(e){}
+  pipCtx.restore();
+
+  const pipRing=document.getElementById('pip-ring');
+  const pipGestureEl=document.getElementById('pip-gesture');
+  const progressFill=document.getElementById('gesture-progress-fill');
+
+  if(results.multiHandLandmarks && results.multiHandLandmarks.length>0){
+    const lms=results.multiHandLandmarks[0];
+    drawSkeleton(pipCtx,lms,280,280);
+    const g=classifyGesture(lms);
+
+    if(g!=='none'){
+      if(g===lastGesture){ gestureHold+=33; }
+      else{ lastGesture=g; gestureHold=0; }
+
+      const pct=Math.min(100,Math.round(gestureHold/HOLD_MS*100));
+      progressFill.style.width=pct+'%';
+
+      const cfg=EVENTS[g];
+      if(cfg){
+        pipGestureEl.textContent=cfg.name;
+        pipGestureEl.style.color=cfg.color;
+        pipRing.style.background=pct>=100
+          ?`conic-gradient(${cfg.color} 0deg, ${cfg.color} 360deg)`
+          :`conic-gradient(${cfg.color} 0deg, ${cfg.color} ${pct*3.6}deg, rgba(255,255,255,0.08) ${pct*3.6}deg)`;
+        pipRing.classList.add('gesture-hold');
+      }
+      if(gestureHold>=HOLD_MS){ triggerEvent(g); }
+    } else {
+      lastGesture='none'; gestureHold=0;
+      progressFill.style.width='0%';
+      pipGestureEl.textContent='SHOW A GESTURE';
+      pipGestureEl.style.color='var(--cyan)';
+      pipRing.style.background='conic-gradient(var(--cyan) 0deg, var(--purple) 180deg, var(--cyan) 360deg)';
+      pipRing.classList.remove('gesture-hold');
+    }
+  } else {
+    lastGesture='none'; gestureHold=0;
+    progressFill.style.width='0%';
+    pipGestureEl.textContent='NO HAND DETECTED';
+    pipGestureEl.style.color='rgba(255,255,255,0.3)';
+    pipRing.classList.remove('gesture-hold');
+  }
+}
+
+function drawSkeleton(ctx,lms,w,h){
+  const connections=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+  ctx.strokeStyle='rgba(0,245,255,0.7)';
+  ctx.lineWidth=1.5;
+  for(const [a,b] of connections){
+    ctx.beginPath();
+    ctx.moveTo((1-lms[a].x)*w,lms[a].y*h);
+    ctx.lineTo((1-lms[b].x)*w,lms[b].y*h);
+    ctx.stroke();
+  }
+  // Fingertips highlighted
+  const tips=[4,8,12,16,20];
+  for(const lm of lms){
+    const isTip=tips.includes(lms.indexOf(lm));
+    ctx.beginPath();
+    ctx.arc((1-lm.x)*w,lm.y*h,isTip?4:2.5,0,Math.PI*2);
+    ctx.fillStyle=isTip?'rgba(0,245,255,1)':'rgba(150,255,220,0.85)';
+    ctx.fill();
+  }
+}
+
+/* ──────────────────────────────────────────
+   ANIMATION LOOP
+──────────────────────────────────────────── */
+function animate(){
+  requestAnimationFrame(animate);
+  const t=clock.getElapsedTime();
+  cameraTarget.x+=Math.sin(t*0.13)*0.0015;
+  cameraTarget.y+=Math.cos(t*0.11)*0.001;
+  camera.position.lerp(cameraTarget,0.018);
+  camera.lookAt(0,0,0);
+  if(starField) starField.rotation.y=t*0.004;
+  if(activeEvent) activeEvent.update(t);
+  renderer.render(scene,camera);
+}
+
+/* ──────────────────────────────────────────
+   GATE + INIT
+──────────────────────────────────────────── */
+function setLoad(pct,text){
+  document.getElementById('load-fill').style.width=pct+'%';
+  if(text) document.getElementById('load-text').textContent=text;
+}
+
+document.getElementById('allow-btn').addEventListener('click', async ()=>{
+  initAudio();
+  const gate=document.getElementById('gate');
+  const loading=document.getElementById('loading');
+  const errPanel=document.getElementById('error-panel');
+
+  // Hide gate, show loader
+  gate.classList.add('fade-out');
+  setTimeout(()=>gate.style.display='none',800);
+  loading.style.display='flex';
+  setLoad(5,'REQUESTING CAMERA');
+
+  try{
+    const video=await startCamera();
+    setLoad(20,'CAMERA READY');
+    await new Promise(r=>setTimeout(r,200));
+
+    setLoad(35,'BUILDING COSMOS');
+    initThree();
+    await new Promise(r=>setTimeout(r,100));
+    setLoad(55,'LOADING HAND MODELS');
+
+    await initMediaPipe(video);
+    setLoad(80,'CALIBRATING GESTURES');
+    await new Promise(r=>setTimeout(r,400));
+
+    setLoad(100,'READY');
+    await new Promise(r=>setTimeout(r,600));
+
+    loading.classList.add('fade-out');
+    setTimeout(()=>loading.style.display='none',800);
+
+    const app=document.getElementById('app');
+    app.classList.add('visible');
+
+    animate();
+
+  } catch(err){
+    console.error(err);
+    loading.style.display='none';
+    gate.style.display='flex';
+    gate.classList.remove('fade-out');
+    setTimeout(()=>gate.style.opacity='1',10);
+
+    errPanel.style.display='block';
+    if(err.name==='NotAllowedError'){
+      errPanel.innerHTML='<strong>Camera access was denied.</strong><br>Please click the camera icon in your browser\'s address bar and allow access, then try again.';
+    } else if(err.name==='NotFoundError'){
+      errPanel.innerHTML='<strong>No camera found.</strong><br>Please connect a webcam and try again.';
+    } else {
+      errPanel.innerHTML=`<strong>Could not access camera.</strong><br>${err.message||'Unknown error'}`;
+    }
+  }
+});
+</script>
+</body>
+</html>
