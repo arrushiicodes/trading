@@ -1,0 +1,19 @@
+@echo off
+title TradeAI
+echo.
+echo  ████████╗██████╗  █████╗ ██████╗ ███████╗ █████╗ ██╗
+echo  ╚══██╔══╝██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗██║
+echo     ██║   ██████╔╝███████║██║  ██║█████╗  ███████║██║
+echo     ██║   ██╔══██╗██╔══██║██║  ██║██╔══╝  ██╔══██║██║
+echo     ██║   ██║  ██║██║  ██║██████╔╝███████╗██║  ██║██║
+echo     ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚═╝
+echo.
+echo  Installing dependencies (first run only)...
+echo.
+pip install -r requirements.txt 2>nul
+echo.
+echo  Starting backend on http://localhost:8000
+echo  Open index.html in your browser once you see "Application startup complete"
+echo.
+uvicorn main:app --reload --port 8000
+pause

@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+yfinance
+pandas
+numpy
+scikit-learn
+python-dotenv
+pydantic
+pydantic-settings
+httpx
+requests
