@@ -1,2 +1,3 @@
-# trading
-Its an ai trading tool which will predict futures trades, explain them and doees backtesting as well
+Hey im arushi 
+I am a developer and designer who makes your idea creative and exceutes them with utmost peerfection
+
